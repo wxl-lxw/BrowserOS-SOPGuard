@@ -2,6 +2,7 @@
 
 import type { ToolUIPart } from 'ai'
 import {
+  AlertTriangleIcon,
   CheckCircleIcon,
   ChevronDownIcon,
   CircleIcon,
@@ -126,6 +127,27 @@ export type ToolOutputProps = ComponentProps<'div'> & {
   errorText: ToolUIPart['errorText']
 }
 
+type CrossOriginTransferMetadata = {
+  detected?: boolean
+  sourceOrigins?: string[]
+  targetOrigin?: string
+}
+
+function getCrossOriginTransferMetadata(
+  output: ToolUIPart['output'],
+): CrossOriginTransferMetadata | undefined {
+  if (!output || typeof output !== 'object') return undefined
+
+  const metadata = (
+    output as {
+      metadata?: { crossOriginTransfer?: CrossOriginTransferMetadata }
+    }
+  ).metadata
+  return metadata?.crossOriginTransfer?.detected
+    ? metadata.crossOriginTransfer
+    : undefined
+}
+
 /** @public */
 export const ToolOutput = ({
   className,
@@ -136,6 +158,8 @@ export const ToolOutput = ({
   if (!(output || errorText)) {
     return null
   }
+
+  const crossOriginTransfer = getCrossOriginTransferMetadata(output)
 
   let Output = <div>{output as ReactNode}</div>
 
@@ -152,6 +176,16 @@ export const ToolOutput = ({
       <h4 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
         {errorText ? 'Error' : 'Result'}
       </h4>
+      {crossOriginTransfer ? (
+        <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-amber-950 text-xs">
+          <AlertTriangleIcon className="mt-0.5 size-4 shrink-0 text-amber-700" />
+          <div>
+            Warning: the agent wrote data derived from{' '}
+            {crossOriginTransfer.sourceOrigins?.join(', ') || 'another origin'}{' '}
+            into {crossOriginTransfer.targetOrigin || 'this page'}.
+          </div>
+        </div>
+      ) : null}
       <div
         className={cn(
           'overflow-x-auto rounded-md text-xs [&_table]:w-full',

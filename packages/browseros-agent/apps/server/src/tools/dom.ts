@@ -1,10 +1,20 @@
 import { z } from 'zod'
 import { formatSearchResult } from '../browser/dom'
-import { defineToolWithCategory } from './framework'
+import { defineToolWithCategory, type ToolContext } from './framework'
 import { writeTempToolOutputFile } from './output-file'
 
 const pageParam = z.number().describe('Page ID (from list_pages)')
 const defineObservationTool = defineToolWithCategory('observation')
+
+function getPageOriginLabel(ctx: ToolContext, page: number): string {
+  const url = ctx.browser.getPageInfo(page)?.url
+  if (!url) return 'unknown'
+  try {
+    return new URL(url).origin
+  } catch {
+    return 'unknown'
+  }
+}
 
 export const get_dom = defineObservationTool({
   name: 'get_dom',
@@ -25,6 +35,7 @@ export const get_dom = defineObservationTool({
     totalLength: z.number(),
   }),
   handler: async (args, ctx, response) => {
+    const origin = getPageOriginLabel(ctx, args.page)
     const html = await ctx.browser.getDom(args.page, {
       selector: args.selector,
     })
@@ -48,6 +59,7 @@ export const get_dom = defineObservationTool({
         ? `Saved DOM for selector "${args.selector}" to ${path}`
         : `Saved DOM to ${path}`,
     )
+    response.text(`[Source origin] ${origin}`)
     response.data({
       path,
       selector: args.selector,
@@ -87,6 +99,7 @@ export const search_dom = defineObservationTool({
     ),
   }),
   handler: async (args, ctx, response) => {
+    const origin = getPageOriginLabel(ctx, args.page)
     const { results, totalCount } = await ctx.browser.searchDom(
       args.page,
       args.query,
@@ -94,6 +107,7 @@ export const search_dom = defineObservationTool({
     )
 
     if (results.length === 0) {
+      response.text(`[Source origin] ${origin}`)
       response.text(`No elements matching "${args.query}" found.`)
       response.data({
         query: args.query,
@@ -110,7 +124,7 @@ export const search_dom = defineObservationTool({
         ? `\n\n[Showing ${results.length} of ${totalCount} matches. Increase limit to see more.]`
         : ''
     response.text(
-      `Found ${totalCount} matching elements:\n\n${lines.join('\n\n')}${suffix}`,
+      `[Source origin] ${origin}\nFound ${totalCount} matching elements:\n\n${lines.join('\n\n')}${suffix}`,
     )
     response.data({
       query: args.query,

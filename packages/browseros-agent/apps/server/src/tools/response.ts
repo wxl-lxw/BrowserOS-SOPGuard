@@ -12,6 +12,14 @@ export type PostAction =
 
 export interface ToolResultMetadata {
   tabId?: number
+  pageId?: number
+  pageUrl?: string
+  pageOrigin?: string
+  crossOriginTransfer?: {
+    detected: boolean
+    sourceOrigins: string[]
+    targetOrigin: string
+  }
 }
 
 export interface ToolResult {

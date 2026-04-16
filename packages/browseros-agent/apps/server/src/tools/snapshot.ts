@@ -1,12 +1,22 @@
 import { TOOL_LIMITS } from '@browseros/shared/constants/limits'
 import { z } from 'zod'
-import { defineToolWithCategory } from './framework'
+import { defineToolWithCategory, type ToolContext } from './framework'
 import { writeTempToolOutputFile } from './output-file'
 
 const pageParam = z.number().describe('Page ID (from list_pages)')
 const defineObservationTool = defineToolWithCategory('observation')
 const defineCaptureTool = defineToolWithCategory('screenshots')
 const defineScriptTool = defineToolWithCategory('scripts')
+
+function getPageOriginLabel(ctx: ToolContext, page: number): string {
+  const url = ctx.browser.getPageInfo(page)?.url
+  if (!url) return 'unknown'
+  try {
+    return new URL(url).origin
+  } catch {
+    return 'unknown'
+  }
+}
 
 export const take_snapshot = defineObservationTool({
   name: 'take_snapshot',
@@ -78,6 +88,7 @@ export const get_page_content = defineObservationTool({
     writtenToFile: z.boolean(),
   }),
   handler: async (args, ctx, response) => {
+    const origin = getPageOriginLabel(ctx, args.page)
     const text = await ctx.browser.contentAsMarkdown(args.page, {
       selector: args.selector,
       viewportOnly: args.viewportOnly,
@@ -85,6 +96,7 @@ export const get_page_content = defineObservationTool({
       includeImages: args.includeImages,
     })
     if (!text) {
+      response.text(`[Source origin] ${origin}`)
       response.text('No text content found.')
       response.data({
         content: '',
@@ -107,6 +119,7 @@ export const get_page_content = defineObservationTool({
       // Return truncated content inline so the agent can work immediately,
       // plus the file path for optional deep reading
       const truncated = text.slice(0, TOOL_LIMITS.INLINE_PAGE_CONTENT_MAX_CHARS)
+      response.text(`[Source origin] ${origin}`)
       response.text(truncated)
       response.text(
         `\n\n[Content truncated at ${TOOL_LIMITS.INLINE_PAGE_CONTENT_MAX_CHARS} chars. Full content (${text.length} chars) saved to: ${path}]`,
@@ -123,6 +136,7 @@ export const get_page_content = defineObservationTool({
       return
     }
 
+    response.text(`[Source origin] ${origin}`)
     response.text(text)
     response.data({
       content: text,
@@ -192,15 +206,18 @@ export const get_page_links = defineObservationTool({
     count: z.number(),
   }),
   handler: async (args, ctx, response) => {
+    const origin = getPageOriginLabel(ctx, args.page)
     const links = await ctx.browser.getPageLinks(args.page)
 
     if (links.length === 0) {
+      response.text(`[Source origin] ${origin}`)
       response.text('No links found on the page.')
       response.data({ links: [], count: 0 })
       return
     }
 
     const lines = links.map((l) => (l.text ? `[${l.text}](${l.href})` : l.href))
+    response.text(`[Source origin] ${origin}`)
     response.text(lines.join('\n'))
     response.data({ links, count: links.length })
   },
@@ -220,6 +237,7 @@ export const evaluate_script = defineScriptTool({
     description: z.string().optional(),
   }),
   handler: async (args, ctx, response) => {
+    const origin = getPageOriginLabel(ctx, args.page)
     const result = await ctx.browser.evaluate(args.page, args.expression)
 
     if (result.error) {
@@ -231,12 +249,15 @@ export const evaluate_script = defineScriptTool({
     let text: string
     if (val === undefined) {
       text = result.description ?? 'undefined'
+      response.text(`[Source origin] ${origin}`)
       response.text(text)
     } else if (typeof val === 'string') {
       text = val
+      response.text(`[Source origin] ${origin}`)
       response.text(text)
     } else {
       text = JSON.stringify(val, null, 2)
+      response.text(`[Source origin] ${origin}`)
       response.text(text)
     }
     response.data({

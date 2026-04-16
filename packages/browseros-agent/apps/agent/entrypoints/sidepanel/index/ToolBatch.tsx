@@ -30,6 +30,25 @@ interface ToolBatchProps {
   onDeny?: (approvalId: string) => void
 }
 
+function getApprovalWarning(tool: ToolInvocationInfo): string | null {
+  const sourceOrigins = Array.isArray(tool.input?.sourceOrigins)
+    ? tool.input.sourceOrigins.filter(
+        (value): value is string =>
+          typeof value === 'string' && value.length > 0,
+      )
+    : []
+
+  if (
+    (tool.toolName === 'fill' || tool.toolName === 'type_at') &&
+    sourceOrigins.length > 0 &&
+    !sourceOrigins.every((origin) => origin.toLowerCase() === 'none')
+  ) {
+    return 'This action may violate the same-origin policy: it is trying to write data from one source into a different source.'
+  }
+
+  return null
+}
+
 export const ToolBatch: FC<ToolBatchProps> = ({
   tools,
   isLastBatch,
@@ -88,6 +107,7 @@ export const ToolBatch: FC<ToolBatchProps> = ({
               tool.approval?.id != null && (
                 <ApprovalButtons
                   approvalId={tool.approval.id}
+                  warningText={getApprovalWarning(tool)}
                   onApprove={onApprove}
                   onDeny={onDeny}
                 />
@@ -121,27 +141,35 @@ const isToolApprovalPending = (state: ToolInvocationState) =>
 
 const ApprovalButtons: FC<{
   approvalId: string
+  warningText?: string | null
   onApprove?: (id: string) => void
   onDeny?: (id: string) => void
-}> = ({ approvalId, onApprove, onDeny }) => (
-  <div className="mt-1 mb-2 ml-6 flex items-center gap-2">
-    <Button
-      size="sm"
-      className="h-7 gap-1 px-2.5 text-xs"
-      onClick={() => onApprove?.(approvalId)}
-    >
-      <ShieldCheck className="size-3" />
-      Approve
-    </Button>
-    <Button
-      size="sm"
-      variant="outline"
-      className="h-7 gap-1 px-2.5 text-xs"
-      onClick={() => onDeny?.(approvalId)}
-    >
-      <ShieldX className="size-3" />
-      Deny
-    </Button>
+}> = ({ approvalId, warningText, onApprove, onDeny }) => (
+  <div className="mt-1 mb-2 ml-6">
+    {warningText ? (
+      <div className="mb-2 rounded-md border border-amber-300 bg-amber-50 px-2.5 py-2 text-amber-950 text-xs">
+        {warningText}
+      </div>
+    ) : null}
+    <div className="flex items-center gap-2">
+      <Button
+        size="sm"
+        className="h-7 gap-1 px-2.5 text-xs"
+        onClick={() => onApprove?.(approvalId)}
+      >
+        <ShieldCheck className="size-3" />
+        Approve
+      </Button>
+      <Button
+        size="sm"
+        variant="outline"
+        className="h-7 gap-1 px-2.5 text-xs"
+        onClick={() => onDeny?.(approvalId)}
+      >
+        <ShieldX className="size-3" />
+        Deny
+      </Button>
+    </div>
   </div>
 )
 

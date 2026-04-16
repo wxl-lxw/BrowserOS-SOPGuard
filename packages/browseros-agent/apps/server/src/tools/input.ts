@@ -6,6 +6,12 @@ const defineInputTool = defineToolWithCategory('input')
 const elementParam = z
   .number()
   .describe('Element ID from snapshot (the number in [N])')
+const sourceOriginsParam = z
+  .array(z.string())
+  .min(1)
+  .describe(
+    'Origins of browser data this text was derived from. Preserve these even if the text was summarized or transformed. If there is no browser-derived source, pass ["None"].',
+  )
 
 export const click = defineInputTool({
   name: 'click',
@@ -113,10 +119,17 @@ export const type_at = defineInputTool({
     y: z.number().describe('Y coordinate to click before typing'),
     text: z.string().describe('Text to type'),
     clear: z.boolean().default(false).describe('Clear field before typing'),
+    sourceOrigins: sourceOriginsParam,
   }),
   handler: async (args, ctx, response) => {
     await ctx.browser.typeAt(args.page, args.x, args.y, args.text, args.clear)
     response.text(`Typed ${args.text.length} chars at (${args.x}, ${args.y})`)
+    response.data({
+      action: 'type_at',
+      page: args.page,
+      textLength: args.text.length,
+      sourceOrigins: args.sourceOrigins,
+    })
     response.includeSnapshot(args.page)
   },
 })
@@ -197,6 +210,7 @@ export const fill = defineInputTool({
       .boolean()
       .default(true)
       .describe('Clear existing text before typing'),
+    sourceOrigins: sourceOriginsParam,
   }),
   output: z.object({
     action: z.literal('fill'),
@@ -204,6 +218,7 @@ export const fill = defineInputTool({
     element: z.number(),
     textLength: z.number(),
     clear: z.boolean(),
+    sourceOrigins: z.array(z.string()),
   }),
   handler: async (args, ctx, response) => {
     const coords = await ctx.browser.fill(
@@ -224,6 +239,7 @@ export const fill = defineInputTool({
       element: args.element,
       textLength: args.text.length,
       clear: args.clear,
+      sourceOrigins: args.sourceOrigins,
     })
     response.includeSnapshot(args.page)
   },

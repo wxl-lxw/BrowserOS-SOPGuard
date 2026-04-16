@@ -139,9 +139,48 @@ export async function executeTool(
 
   const pageId = (args as Record<string, unknown>).page
   if (typeof pageId === 'number') {
-    const tabId = ctx.browser.getTabIdForPage(pageId)
-    if (tabId !== undefined) {
-      result.metadata = { ...result.metadata, tabId }
+    const pageInfo =
+      (await ctx.browser.refreshPageInfo(pageId)) ??
+      ctx.browser.getPageInfo(pageId)
+    const pageUrl = pageInfo?.url
+    let pageOrigin: string | undefined
+    if (pageUrl) {
+      try {
+        pageOrigin = new URL(pageUrl).origin
+      } catch {
+        pageOrigin = undefined
+      }
+    }
+
+    const rawSourceOrigins = (args as Record<string, unknown>).sourceOrigins
+    const sourceOrigins = Array.isArray(rawSourceOrigins)
+      ? rawSourceOrigins.filter(
+          (origin): origin is string =>
+            typeof origin === 'string' &&
+            origin.length > 0 &&
+            origin.toLowerCase() !== 'none',
+        )
+      : []
+    const crossOriginSources =
+      pageOrigin !== undefined
+        ? [...new Set(sourceOrigins.filter((origin) => origin !== pageOrigin))]
+        : []
+
+    result.metadata = {
+      ...result.metadata,
+      pageId,
+      tabId: pageInfo?.tabId,
+      pageUrl,
+      pageOrigin,
+      ...(crossOriginSources.length > 0 && pageOrigin
+        ? {
+            crossOriginTransfer: {
+              detected: true,
+              sourceOrigins: crossOriginSources,
+              targetOrigin: pageOrigin,
+            },
+          }
+        : {}),
     }
   }
 

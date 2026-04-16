@@ -7,6 +7,58 @@ import { executeTool, type ToolContext } from '../tools/framework'
 import type { ContentItem } from '../tools/response'
 import type { ToolRegistry } from '../tools/tool-registry'
 
+function getSourceOrigins(params: unknown): string[] {
+  const rawSourceOrigins = (params as Record<string, unknown>).sourceOrigins
+  return Array.isArray(rawSourceOrigins)
+    ? rawSourceOrigins.filter(
+        (origin): origin is string =>
+          typeof origin === 'string' &&
+          origin.length > 0 &&
+          origin.toLowerCase() !== 'none',
+      )
+    : []
+}
+
+async function isCrossOriginWriteApprovalNeeded(
+  toolName: string,
+  params: unknown,
+  ctx: ToolContext,
+): Promise<boolean> {
+  if (toolName !== 'fill' && toolName !== 'type_at') {
+    return false
+  }
+
+  const pageId = (params as Record<string, unknown>).page
+  if (typeof pageId !== 'number') {
+    return false
+  }
+
+  const sourceOrigins = getSourceOrigins(params)
+  if (sourceOrigins.length === 0) {
+    return false
+  }
+
+  const pageInfo =
+    (await ctx.browser.refreshPageInfo(pageId)) ?? ctx.browser.getPageInfo(pageId)
+  const pageUrl = pageInfo?.url
+  if (!pageUrl) {
+    return false
+  }
+
+  let pageOrigin: string | undefined
+  try {
+    pageOrigin = new URL(pageUrl).origin
+  } catch {
+    pageOrigin = undefined
+  }
+
+  if (!pageOrigin) {
+    return false
+  }
+
+  return sourceOrigins.some((origin) => origin !== pageOrigin)
+}
+
 function contentToModelOutput(
   content: ContentItem[],
 ): LanguageModelV2ToolResultOutput {
@@ -57,7 +109,9 @@ export function buildBrowserToolSet(
     toolSet[def.name] = tool({
       description: def.description,
       inputSchema: def.input,
-      needsApproval: approvalConfig?.categories[def.approvalCategory] === true,
+      needsApproval: async (params) =>
+        approvalConfig?.categories[def.approvalCategory] === true ||
+        (await isCrossOriginWriteApprovalNeeded(def.name, params, ctx)),
       execute: async (params) => {
         const startTime = performance.now()
         try {
