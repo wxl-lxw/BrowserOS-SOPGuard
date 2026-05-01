@@ -29,7 +29,9 @@ export const take_snapshot = defineObservationTool({
     snapshot: z.string(),
   }),
   handler: async (args, ctx, response) => {
+    const origin = getPageOriginLabel(ctx, args.page)
     const tree = await ctx.browser.snapshot(args.page)
+    response.text(`[Source origin] ${origin}`)
     response.text(tree || 'Page has no interactive elements.')
     response.data({ snapshot: tree || '' })
   },
@@ -46,7 +48,9 @@ export const take_enhanced_snapshot = defineObservationTool({
     snapshot: z.string(),
   }),
   handler: async (args, ctx, response) => {
+    const origin = getPageOriginLabel(ctx, args.page)
     const tree = await ctx.browser.enhancedSnapshot(args.page)
+    response.text(`[Source origin] ${origin}`)
     response.text(tree || 'Page has no visible content.')
     response.data({ snapshot: tree || '' })
   },
