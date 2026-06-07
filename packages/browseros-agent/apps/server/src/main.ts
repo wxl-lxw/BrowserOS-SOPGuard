@@ -25,7 +25,7 @@ import {
   removeServerConfigSync,
   writeServerConfig,
 } from './lib/browseros-dir'
-import { initializeDb } from './lib/db'
+import { closeDb, initializeDb } from './lib/db'
 import { identity } from './lib/identity'
 import { logger } from './lib/logger'
 import { metrics } from './lib/metrics'
@@ -44,6 +44,7 @@ import { VERSION } from './version'
 export class Application {
   private config: ServerConfig
   private db: Database | null = null
+  private dbPath: string | null = null
 
   constructor(config: ServerConfig) {
     this.config = config
@@ -141,6 +142,7 @@ export class Application {
       .shutdown()
       .catch(() => {})
     removeServerConfigSync()
+    this.cleanupDbFilesSync()
 
     // Immediate exit without graceful shutdown. Chromium may kill us on update/restart,
     // and we need to free the port instantly so the HTTP port doesn't keep switching.
@@ -157,15 +159,18 @@ export class Application {
     this.configureLogDirectory()
     await ensureBrowserosDir()
     await cleanOldSessions()
+    this.cleanupStaleTempDbFilesSync()
     await seedSoulTemplate()
     await migrateBuiltinSkills()
     await syncBuiltinSkills()
 
     const dbPath = path.join(
       this.config.executionDir || this.config.resourcesDir,
-      'browseros.db',
+      `browseros-${process.pid}-${Date.now()}.db`,
     )
+    this.dbPath = dbPath
     this.db = initializeDb(dbPath)
+    logger.debug('Initialized temporary database', { dbPath })
 
     identity.initialize({
       installId: this.config.instanceInstallId,
@@ -249,5 +254,65 @@ export class Application {
     logger.info('Services running:')
     logger.info(`  HTTP Server: http://127.0.0.1:${this.config.serverPort}`)
     logger.info('')
+  }
+
+  private cleanupDbFilesSync(): void {
+    const dbPath = this.dbPath
+
+    if (this.db) {
+      try {
+        closeDb()
+      } catch (error) {
+        logger.warn('Failed to close database during shutdown', {
+          error: error instanceof Error ? error.message : String(error),
+        })
+      } finally {
+        this.db = null
+      }
+    }
+
+    if (!dbPath) return
+
+    for (const target of [dbPath, `${dbPath}-wal`, `${dbPath}-shm`]) {
+      try {
+        fs.rmSync(target, { force: true })
+      } catch (error) {
+        logger.warn('Failed to remove temporary database file', {
+          path: target,
+          error: error instanceof Error ? error.message : String(error),
+        })
+      }
+    }
+
+    this.dbPath = null
+  }
+
+  private cleanupStaleTempDbFilesSync(): void {
+    const baseDir = this.config.executionDir || this.config.resourcesDir
+    let entries: string[]
+
+    try {
+      entries = fs.readdirSync(baseDir)
+    } catch (error) {
+      logger.warn('Failed to scan execution directory for stale temp DBs', {
+        dir: baseDir,
+        error: error instanceof Error ? error.message : String(error),
+      })
+      return
+    }
+
+    const tempDbPattern = /^browseros-\d+-\d+\.db(?:-wal|-shm)?$/
+    for (const entry of entries) {
+      if (!tempDbPattern.test(entry)) continue
+      const target = path.join(baseDir, entry)
+      try {
+        fs.rmSync(target, { force: true })
+      } catch (error) {
+        logger.warn('Failed to remove stale temp DB file', {
+          path: target,
+          error: error instanceof Error ? error.message : String(error),
+        })
+      }
+    }
   }
 }

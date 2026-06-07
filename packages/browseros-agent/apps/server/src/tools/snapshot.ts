@@ -1,5 +1,6 @@
 import { TOOL_LIMITS } from '@browseros/shared/constants/limits'
 import { z } from 'zod'
+import { storeObservedPageData } from '../lib/observed-page-data'
 import { defineToolWithCategory } from './framework'
 import { writeTempToolOutputFile } from './output-file'
 
@@ -17,11 +18,17 @@ export const take_snapshot = defineObservationTool({
   }),
   output: z.object({
     snapshot: z.string(),
+    observedDataId: z.number(),
   }),
   handler: async (args, ctx, response) => {
     const tree = await ctx.browser.snapshot(args.page)
+    const observed = await storeObservedPageData({
+      browser: ctx.browser,
+      pageId: args.page,
+      content: tree || '',
+    })
     response.text(tree || 'Page has no interactive elements.')
-    response.data({ snapshot: tree || '' })
+    response.data({ snapshot: tree || '', observedDataId: observed.id })
   },
 })
 
@@ -34,11 +41,17 @@ export const take_enhanced_snapshot = defineObservationTool({
   }),
   output: z.object({
     snapshot: z.string(),
+    observedDataId: z.number(),
   }),
   handler: async (args, ctx, response) => {
     const tree = await ctx.browser.enhancedSnapshot(args.page)
+    const observed = await storeObservedPageData({
+      browser: ctx.browser,
+      pageId: args.page,
+      content: tree || '',
+    })
     response.text(tree || 'Page has no visible content.')
-    response.data({ snapshot: tree || '' })
+    response.data({ snapshot: tree || '', observedDataId: observed.id })
   },
 })
 
@@ -76,6 +89,7 @@ export const get_page_content = defineObservationTool({
     includeLinks: z.boolean(),
     includeImages: z.boolean(),
     writtenToFile: z.boolean(),
+    observedDataId: z.number(),
   }),
   handler: async (args, ctx, response) => {
     const text = await ctx.browser.contentAsMarkdown(args.page, {
@@ -83,6 +97,11 @@ export const get_page_content = defineObservationTool({
       viewportOnly: args.viewportOnly,
       includeLinks: args.includeLinks,
       includeImages: args.includeImages,
+    })
+    const observed = await storeObservedPageData({
+      browser: ctx.browser,
+      pageId: args.page,
+      content: text || '',
     })
     if (!text) {
       response.text('No text content found.')
@@ -94,6 +113,7 @@ export const get_page_content = defineObservationTool({
         includeLinks: args.includeLinks,
         includeImages: args.includeImages,
         writtenToFile: false,
+        observedDataId: observed.id,
       })
       return
     }
@@ -119,6 +139,7 @@ export const get_page_content = defineObservationTool({
         includeLinks: args.includeLinks,
         includeImages: args.includeImages,
         writtenToFile: true,
+        observedDataId: observed.id,
       })
       return
     }
@@ -132,6 +153,7 @@ export const get_page_content = defineObservationTool({
       includeLinks: args.includeLinks,
       includeImages: args.includeImages,
       writtenToFile: false,
+      observedDataId: observed.id,
     })
   },
 })
@@ -183,6 +205,7 @@ export const get_page_links = defineObservationTool({
     page: pageParam,
   }),
   output: z.object({
+    observedDataId: z.number(),
     links: z.array(
       z.object({
         text: z.string(),
@@ -195,14 +218,25 @@ export const get_page_links = defineObservationTool({
     const links = await ctx.browser.getPageLinks(args.page)
 
     if (links.length === 0) {
+      const observed = await storeObservedPageData({
+        browser: ctx.browser,
+        pageId: args.page,
+        content: '',
+      })
       response.text('No links found on the page.')
-      response.data({ links: [], count: 0 })
+      response.data({ links: [], count: 0, observedDataId: observed.id })
       return
     }
 
     const lines = links.map((l) => (l.text ? `[${l.text}](${l.href})` : l.href))
-    response.text(lines.join('\n'))
-    response.data({ links, count: links.length })
+    const content = lines.join('\n')
+    const observed = await storeObservedPageData({
+      browser: ctx.browser,
+      pageId: args.page,
+      content,
+    })
+    response.text(content)
+    response.data({ links, count: links.length, observedDataId: observed.id })
   },
 })
 
@@ -218,6 +252,7 @@ export const evaluate_script = defineScriptTool({
     text: z.string(),
     value: z.unknown().optional(),
     description: z.string().optional(),
+    observedDataId: z.number(),
   }),
   handler: async (args, ctx, response) => {
     const result = await ctx.browser.evaluate(args.page, args.expression)
@@ -239,10 +274,16 @@ export const evaluate_script = defineScriptTool({
       text = JSON.stringify(val, null, 2)
       response.text(text)
     }
+    const observed = await storeObservedPageData({
+      browser: ctx.browser,
+      pageId: args.page,
+      content: text,
+    })
     response.data({
       text,
       value: result.value,
       description: result.description,
+      observedDataId: observed.id,
     })
   },
 })

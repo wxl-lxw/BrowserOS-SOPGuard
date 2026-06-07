@@ -1,11 +1,32 @@
 import type { LanguageModelV2ToolResultOutput } from '@ai-sdk/provider'
 import type { ToolApprovalConfig } from '@browseros/shared/constants/tool-approval'
 import { type ToolSet, tool } from 'ai'
+import type { ResolvedAgentConfig } from '../agent/types'
 import { logger } from '../lib/logger'
 import { metrics } from '../lib/metrics'
+import { sourceOriginsFromUrl } from '../lib/observed-page-data'
+import { inferTextSourceOriginsSafely, originsMatch } from '../lib/text-origin'
 import { executeTool, type ToolContext } from '../tools/framework'
 import type { ContentItem } from '../tools/response'
 import type { ToolRegistry } from '../tools/tool-registry'
+
+type ApprovalContextInput = Record<string, unknown> & {
+  __approvalContext?: {
+    type: 'same-origin-policy'
+    pageOrigin: string[]
+    textOrigin: string[]
+    reason: string
+  }
+}
+
+function formatOriginsForApproval(
+  origins: Array<[string, string, number | null]>,
+) {
+  return origins.map(
+    ([scheme, host, port]) =>
+      `${scheme}://${host}${port === null ? '' : `:${port}`}`,
+  )
+}
 
 function contentToModelOutput(
   content: ContentItem[],
@@ -49,15 +70,70 @@ export function getApprovedBrowserToolNames(
 export function buildBrowserToolSet(
   registry: ToolRegistry,
   ctx: ToolContext,
+  resolvedConfig?: ResolvedAgentConfig,
   approvalConfig?: ToolApprovalConfig,
 ): ToolSet {
   const toolSet: ToolSet = {}
 
   for (const def of registry.all()) {
+    const configuredApproval =
+      approvalConfig?.categories[def.approvalCategory] === true
+
     toolSet[def.name] = tool({
       description: def.description,
       inputSchema: def.input,
-      needsApproval: approvalConfig?.categories[def.approvalCategory] === true,
+      needsApproval:
+        def.name === 'fill' || def.name === 'type_at'
+          ? async (input) => {
+              if (configuredApproval) return true
+              if (!resolvedConfig) return false
+
+              const pageId =
+                input && typeof input === 'object' && 'page' in input
+                  ? (input.page as number)
+                  : undefined
+              const text =
+                input && typeof input === 'object' && 'text' in input
+                  ? (input.text as string)
+                  : undefined
+
+              if (typeof pageId !== 'number' || typeof text !== 'string') {
+                return false
+              }
+
+              const pageInfo = await ctx.browser.refreshPageInfo(pageId)
+              if (!pageInfo) return false
+
+              const pageOrigin = sourceOriginsFromUrl(pageInfo.url)
+              if (pageOrigin.length === 0) return false
+
+              const textOrigins = await inferTextSourceOriginsSafely({
+                resolvedConfig,
+                text,
+              })
+              if (textOrigins.length === 0) return false
+
+              const shouldApprove = !originsMatch(pageOrigin, textOrigins)
+              if (shouldApprove) {
+                if (input && typeof input === 'object') {
+                  ;(input as ApprovalContextInput).__approvalContext = {
+                    type: 'same-origin-policy',
+                    pageOrigin: formatOriginsForApproval(pageOrigin),
+                    textOrigin: formatOriginsForApproval(textOrigins),
+                    reason:
+                      'This write action is cross-origin because the page origin and the text origin are different.',
+                  }
+                }
+                logger.warn('Write action requires same-origin approval', {
+                  tool: def.name,
+                  pageId,
+                  pageOrigin,
+                  textOrigins,
+                })
+              }
+              return shouldApprove
+            }
+          : configuredApproval,
       execute: async (params) => {
         const startTime = performance.now()
         try {

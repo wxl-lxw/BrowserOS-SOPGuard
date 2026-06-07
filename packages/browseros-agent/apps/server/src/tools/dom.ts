@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { formatSearchResult } from '../browser/dom'
+import { storeObservedPageData } from '../lib/observed-page-data'
 import { defineToolWithCategory } from './framework'
 import { writeTempToolOutputFile } from './output-file'
 
@@ -23,6 +24,7 @@ export const get_dom = defineObservationTool({
     path: z.string(),
     selector: z.string().optional(),
     totalLength: z.number(),
+    observedDataId: z.number(),
   }),
   handler: async (args, ctx, response) => {
     const html = await ctx.browser.getDom(args.page, {
@@ -43,6 +45,11 @@ export const get_dom = defineObservationTool({
       extension: 'html',
       content: html,
     })
+    const observed = await storeObservedPageData({
+      browser: ctx.browser,
+      pageId: args.page,
+      content: html,
+    })
     response.text(
       args.selector
         ? `Saved DOM for selector "${args.selector}" to ${path}`
@@ -52,6 +59,7 @@ export const get_dom = defineObservationTool({
       path,
       selector: args.selector,
       totalLength: html.length,
+      observedDataId: observed.id,
     })
   },
 })
@@ -77,6 +85,7 @@ export const search_dom = defineObservationTool({
     query: z.string(),
     totalCount: z.number(),
     shownCount: z.number(),
+    observedDataId: z.number(),
     results: z.array(
       z.object({
         tag: z.string(),
@@ -94,11 +103,17 @@ export const search_dom = defineObservationTool({
     )
 
     if (results.length === 0) {
+      const observed = await storeObservedPageData({
+        browser: ctx.browser,
+        pageId: args.page,
+        content: '',
+      })
       response.text(`No elements matching "${args.query}" found.`)
       response.data({
         query: args.query,
         totalCount,
         shownCount: 0,
+        observedDataId: observed.id,
         results: [],
       })
       return
@@ -109,13 +124,18 @@ export const search_dom = defineObservationTool({
       totalCount > results.length
         ? `\n\n[Showing ${results.length} of ${totalCount} matches. Increase limit to see more.]`
         : ''
-    response.text(
-      `Found ${totalCount} matching elements:\n\n${lines.join('\n\n')}${suffix}`,
-    )
+    const content = `Found ${totalCount} matching elements:\n\n${lines.join('\n\n')}${suffix}`
+    const observed = await storeObservedPageData({
+      browser: ctx.browser,
+      pageId: args.page,
+      content,
+    })
+    response.text(content)
     response.data({
       query: args.query,
       totalCount,
       shownCount: results.length,
+      observedDataId: observed.id,
       results,
     })
   },

@@ -15,6 +15,10 @@ import type { AgentSession, SessionStore } from '../../agent/session-store'
 import type { ResolvedAgentConfig } from '../../agent/types'
 import type { Browser } from '../../browser/browser'
 import { resolveLLMConfig } from '../../lib/clients/llm/config'
+import {
+  type DerivedDataExtractor,
+  extractDerivedDataSafely,
+} from '../../lib/derived-data'
 import { logger } from '../../lib/logger'
 import type { ToolRegistry } from '../../tools/tool-registry'
 import type { KlavisProxyRef } from '../services/klavis/strata-proxy'
@@ -27,6 +31,7 @@ export interface ChatServiceDeps {
   registry: ToolRegistry
   browserosId?: string
   aiSdkDevtoolsEnabled?: boolean
+  derivedDataExtractor?: DerivedDataExtractor
 }
 
 export class ChatService {
@@ -280,6 +285,14 @@ export class ChatService {
         agent: session.agent.toolLoopAgent,
         uiMessages: filterValidMessages(session.agent.messages),
         abortSignal,
+        onStepFinish: async (stepResult) => {
+          await extractDerivedDataSafely({
+            resolvedConfig: agentConfig,
+            userPrompt: request.message,
+            assistantText: stepResult.text,
+            extractor: this.deps.derivedDataExtractor,
+          })
+        },
         onFinish: async ({ messages }: { messages: UIMessage[] }) => {
           session.agent.messages = filterValidMessages(messages)
         },
@@ -313,6 +326,14 @@ export class ChatService {
       agent: session.agent.toolLoopAgent,
       uiMessages: filterValidMessages(session.agent.messages),
       abortSignal,
+      onStepFinish: async (stepResult) => {
+        await extractDerivedDataSafely({
+          resolvedConfig: agentConfig,
+          userPrompt: request.message,
+          assistantText: stepResult.text,
+          extractor: this.deps.derivedDataExtractor,
+        })
+      },
       onFinish: async ({ messages }: { messages: UIMessage[] }) => {
         session.agent.messages = filterValidMessages(messages)
         logger.info('Agent execution complete', {

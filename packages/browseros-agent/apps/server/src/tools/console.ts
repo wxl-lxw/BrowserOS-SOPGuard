@@ -1,6 +1,7 @@
 import { CONTENT_LIMITS } from '@browseros/shared/constants/limits'
 import { z } from 'zod'
 import type { ConsoleLevel } from '../browser/console-collector'
+import { storeObservedPageData } from '../lib/observed-page-data'
 import { defineToolWithCategory } from './framework'
 
 const pageParam = z.number().describe('Page ID (from list_pages)')
@@ -36,6 +37,7 @@ export const get_console_logs = defineObservationTool({
       .describe('Clear the console buffer after reading'),
   }),
   output: z.object({
+    observedDataId: z.number(),
     entries: z.array(
       z.object({
         source: z.enum(['console', 'exception', 'browser']),
@@ -59,6 +61,11 @@ export const get_console_logs = defineObservationTool({
 
     // Empty results
     if (result.entries.length === 0) {
+      const observed = await storeObservedPageData({
+        browser: ctx.browser,
+        pageId: args.page,
+        content: '',
+      })
       response.text(
         result.totalCount === 0
           ? `No console output for page ${args.page}.`
@@ -68,6 +75,7 @@ export const get_console_logs = defineObservationTool({
         entries: [],
         totalCount: result.totalCount,
         returnedCount: 0,
+        observedDataId: observed.id,
       })
       return
     }
@@ -85,12 +93,19 @@ export const get_console_logs = defineObservationTool({
       result.entries.length < result.totalCount
         ? `Console logs for page ${args.page} (showing ${result.entries.length} of ${result.totalCount}, level ≥ ${args.level}):`
         : `Console logs for page ${args.page} (${result.entries.length} entries, level ≥ ${args.level}):`
+    const content = `${header}\n\n${lines.join('\n')}`
+    const observed = await storeObservedPageData({
+      browser: ctx.browser,
+      pageId: args.page,
+      content,
+    })
 
-    response.text(`${header}\n\n${lines.join('\n')}`)
+    response.text(content)
     response.data({
       entries: result.entries,
       totalCount: result.totalCount,
       returnedCount: result.entries.length,
+      observedDataId: observed.id,
     })
   },
 })

@@ -16,6 +16,7 @@ import {
   TaskTrigger,
 } from '@/components/ai-elements/task'
 import { Button } from '@/components/ui/button'
+import { getApprovalWarningMessage } from '@/lib/tool-approvals/approval-messages'
 import type {
   ToolInvocationInfo,
   ToolInvocationState,
@@ -88,6 +89,8 @@ export const ToolBatch: FC<ToolBatchProps> = ({
               tool.approval?.id != null && (
                 <ApprovalButtons
                   approvalId={tool.approval.id}
+                  toolName={tool.toolName}
+                  input={tool.input}
                   onApprove={onApprove}
                   onDeny={onDeny}
                 />
@@ -121,29 +124,42 @@ const isToolApprovalPending = (state: ToolInvocationState) =>
 
 const ApprovalButtons: FC<{
   approvalId: string
+  toolName: string
+  input: Record<string, unknown>
   onApprove?: (id: string) => void
   onDeny?: (id: string) => void
-}> = ({ approvalId, onApprove, onDeny }) => (
-  <div className="mt-1 mb-2 ml-6 flex items-center gap-2">
-    <Button
-      size="sm"
-      className="h-7 gap-1 px-2.5 text-xs"
-      onClick={() => onApprove?.(approvalId)}
-    >
-      <ShieldCheck className="size-3" />
-      Approve
-    </Button>
-    <Button
-      size="sm"
-      variant="outline"
-      className="h-7 gap-1 px-2.5 text-xs"
-      onClick={() => onDeny?.(approvalId)}
-    >
-      <ShieldX className="size-3" />
-      Deny
-    </Button>
-  </div>
-)
+}> = ({ approvalId, toolName, input, onApprove, onDeny }) => {
+  const warningMessage = getApprovalWarningMessage(toolName, input)
+
+  return (
+    <div className="mt-1 mb-2 ml-6">
+      {warningMessage ? (
+        <p className="mb-2 text-amber-700 text-xs dark:text-amber-400">
+          {warningMessage}
+        </p>
+      ) : null}
+      <div className="flex items-center gap-2">
+        <Button
+          size="sm"
+          className="h-7 gap-1 px-2.5 text-xs"
+          onClick={() => onApprove?.(approvalId)}
+        >
+          <ShieldCheck className="size-3" />
+          Approve
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-7 gap-1 px-2.5 text-xs"
+          onClick={() => onDeny?.(approvalId)}
+        >
+          <ShieldX className="size-3" />
+          Deny
+        </Button>
+      </div>
+    </div>
+  )
+}
 
 const ToolStatusIcon: FC<{ state: ToolInvocationState }> = ({ state }) => {
   if (isToolCompleted(state)) {

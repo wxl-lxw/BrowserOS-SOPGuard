@@ -26,7 +26,17 @@ CREATE TABLE IF NOT EXISTS oauth_tokens (
   PRIMARY KEY (browseros_id, provider)
 )`
 
+const OBSERVED_PAGE_DATA_TABLE = `
+CREATE TABLE IF NOT EXISTS observed_page_data (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  content TEXT NOT NULL,
+  source_origin TEXT NOT NULL,
+  dependency_set TEXT NOT NULL DEFAULT '[]',
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+)`
+
 export function initSchema(db: Database): void {
   db.exec(IDENTITY_TABLE)
   db.exec(OAUTH_TOKENS_TABLE)
+  db.exec(OBSERVED_PAGE_DATA_TABLE)
 }

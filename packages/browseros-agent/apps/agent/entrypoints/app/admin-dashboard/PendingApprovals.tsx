@@ -2,6 +2,7 @@ import { Clock, ShieldCheck, ShieldX } from 'lucide-react'
 import { type FC, useEffect, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { getApprovalWarningMessage } from '@/lib/tool-approvals/approval-messages'
 import {
   type ApprovalResponse,
   approvalResponsesStorage,
@@ -76,6 +77,11 @@ export const PendingApprovals: FC = () => {
                 {JSON.stringify(item.input, null, 2)}
               </pre>
             )}
+            {getApprovalWarningMessage(item.toolName, item.input) ? (
+              <p className="mt-2 text-amber-700 text-xs dark:text-amber-400">
+                {getApprovalWarningMessage(item.toolName, item.input)}
+              </p>
+            ) : null}
             <div className="mt-3 flex gap-2">
               <Button
                 size="sm"

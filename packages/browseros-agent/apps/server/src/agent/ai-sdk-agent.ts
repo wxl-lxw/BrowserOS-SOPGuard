@@ -107,6 +107,7 @@ export class AiSdkAgent {
     const allBrowserTools = buildBrowserToolSet(
       config.registry,
       toolContext,
+      config.resolvedConfig,
       config.resolvedConfig.toolApprovalConfig,
     )
     const browserTools = config.resolvedConfig.chatMode
