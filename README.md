@@ -16,7 +16,8 @@ The supplementary materials are organized under [`supplementary_materials/`](sup
 
 BrowserOS-SOPGuard follows the same launch process as BrowserOS.
 
-For setup, build, and launch instructions, please refer to the official BrowserOS repository.
+For setup, build, and launch instructions, please refer to the [official BrowserOS repository](https://github.com/browseros-ai/BrowserOS). BrowserOS-SOPGuard is built on commit [`d653883e99b31974fc4e95681f1a0bbcb5176d73`](https://github.com/browseros-ai/BrowserOS/commit/d653883e99b31974fc4e95681f1a0bbcb5176d73) of BrowserOS.
+
 
 ## Repository Structure
 
