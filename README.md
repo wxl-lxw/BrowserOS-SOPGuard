@@ -27,3 +27,14 @@ For setup, build, and launch instructions, please refer to the [official Browser
 ├── supplementary_materials/    # Supplementary prompts and webpage artifacts
 └── README.md
 ```
+
+## Citation
+If you find this work useful, please kindly cite:
+```
+@article{wang2026same,
+  title={Same-Origin Policy for Agentic Browsers},
+  author={Wang, Xilong and Chen, Xiaoxing and Li, Patrick and Song, Dawn and Gong, Neil},
+  journal={arXiv preprint arXiv:2606.14027},
+  year={2026}
+}
+```
