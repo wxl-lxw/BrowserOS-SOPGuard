@@ -8,7 +8,7 @@ This is the official repository of the following paper:
 > [Dawn Song](https://dawnsong.io/) <sup>3</sup>,
 > [Neil Gong](https://people.duke.edu/~zg70/)<sup>1</sup>
 >
-> <sup>1</sup>Duke University, <sup>2</sup>Stanford University <br> <sup>3</sup>UC Berkeley
+> <sup>1</sup>Duke University, <sup>2</sup>Stanford University, <sup>3</sup>UC Berkeley
 
 This repository contains official implementation of **BrowserOS-SOPGuard** and supplementary artifacts for our paper, including system prompts used to construct the synthetic webpages, system prompts used for task generation, and example screenshots of synthetic webpages.
 
