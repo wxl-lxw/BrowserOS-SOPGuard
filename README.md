@@ -1,5 +1,15 @@
 ## [Same-Origin Policy for Agentic Browsers](https://arxiv.org/abs/2606.14027)
 
+This is the official repository of the following paper:
+> [**Same-Origin Policy for Agentic Browsers**](https://arxiv.org/abs/2606.14027) <br>
+> [Xilong Wang](https://billchan226.github.io/)<sup>1</sup>,
+> Xiaoxing Chen<sup>1</sup>,
+> Patrick Li <sup>2</sup>,
+> [Dawn Song](https://dawnsong.io/) <sup>3</sup>,
+> [Neil Gong](https://people.duke.edu/~zg70/)<sup>1</sup>
+>
+> <sup>1</sup>Duke University, <sup>2</sup>Stanford University <br> <sup>3</sup>UC Berkeley
+
 This repository contains official implementation of **BrowserOS-SOPGuard** and supplementary artifacts for our paper, including system prompts used to construct the synthetic webpages, system prompts used for task generation, and example screenshots of synthetic webpages.
 
 ## Launching BrowserOS-SOPGuard
