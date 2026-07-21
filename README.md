@@ -2,7 +2,7 @@
 
 This is the official repository of the following paper:
 > [**Same-Origin Policy for Agentic Browsers**](https://arxiv.org/abs/2606.14027) <br>
-> [Xilong Wang](https://billchan226.github.io/)<sup>1</sup>,
+> [Xilong Wang](https://wxl-lxw.github.io/)<sup>1</sup>,
 > Xiaoxing Chen<sup>1</sup>,
 > Patrick Li <sup>2</sup>,
 > [Dawn Song](https://dawnsong.io/) <sup>3</sup>,
